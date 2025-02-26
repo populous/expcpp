@@ -2,4 +2,4 @@ C++ 2nd Text
 C++ 2nd Text // 1st version
 C++ 2nd Text // 2st Home version
 C++ 2nd Text // 3st Home version
-C++ 2nd Text // 3st Home Compony version
+C++ 2nd Text // 3st Compony version
