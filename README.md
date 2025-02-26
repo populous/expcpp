@@ -9,3 +9,8 @@ roor권한의 계정 adinroot 을 만들어
 code 실행환경인 X11 Launch후
 code .가 실행되게 하고.
 파일 NewUser...를 git하는 데 성공했음.
+
+아직 미완인 듯...
+
+
+vc code쪽 한계일 수도......
