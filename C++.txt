@@ -12,9 +12,6 @@ C++ 2nd Text // 9st st HOME version  25.02.27 ls
 C++ 2nd Text // 10st HOME version  25.02.27 ls 
 C++ 2nd Text // 11st HOME version  25.02.27 ls 
 C++ 2nd Text // 11st GitHub 변경 version  25.02.27 ls 
-<<<<<<< HEAD
 C++ 2nd Text // admin write and git version  25.02.27 ls 
-=======
 C++ 2nd Text // choi  GitHub 변경 version  25.02.27 ls 
-C++ 2nd Text // choi  GitHub 변경 version  25.02.27 ls 
->>>>>>> 8251d43 (choi and --rebase)
+C++ 2nd Text // chgit GitHub 변경 version  25.02.27 ls 
