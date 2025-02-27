@@ -14,3 +14,19 @@ code .가 실행되게 하고.
 
 
 vc code쪽 한계일 수도......
+ls -ld /home/kim/git
+    drwxr-xr-x 1 kim kim 4096 Feb 27 17:00 /home/kim/git
+sudo chown -R kim:kim /home/kim/git
+chmod -R 777 /home/kim/git
+su kim
+code .
+
+
+sudo nano /etc/wsl.conf
+[automount]
+enabled = true
+options = "metadata"    
+저장후 나와
+
+wsl --shutdown
+wsl
