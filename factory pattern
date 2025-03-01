@@ -1,0 +1,199 @@
+Abstract Factory 패턴을 사용하여 등록(Register) 방식으로 **의존성 주입(Dependency Injection, DI)**을 처리하고, std::tuple을 사용하여 다양한 객체를 생성할 수 있도록 설계하는 방법을 설명합니다.
+
+목표
+
+Abstract Factory 패턴을 사용하여 객체 생성에 필요한 의존성을 자동으로 주입
+
+**템플릿과 std::tuple**을 활용하여 유연하고 확장 가능한 디자인
+
+다양한 객체를 동적으로 생성하며 의존성도 관리
+
+
+
+---
+
+1. Abstract Factory 패턴
+
+Abstract Factory는 구체적인 객체 생성을 서브 클래스를 통해 정의하고, 각 구체적인 객체 생성은 Factory Method를 사용하여 처리합니다. 이때, std::tuple을 활용하여 가변 인자와 의존성 주입을 효율적으로 관리할 수 있습니다.
+
+
+---
+
+2. 코드 구현 예시
+
+#include <iostream>
+#include <unordered_map>
+#include <tuple>
+#include <memory>
+#include <functional>
+
+// === [1] 기본 인터페이스 ===
+class Product {
+public:
+    virtual void show() = 0;
+    virtual ~Product() = default;
+};
+
+// === [2] 의존성 클래스 ===
+class DependencyA {
+public:
+    void doSomething() { std::cout << "[DependencyA] Working!" << std::endl; }
+};
+
+class DependencyB {
+public:
+    void doSomethingElse() { std::cout << "[DependencyB] Doing something else!" << std::endl; }
+};
+
+// === [3] 구체적인 제품 클래스 ===
+class ConcreteProductA : public Product {
+    DependencyA& depA;
+public:
+    ConcreteProductA(DependencyA& a) : depA(a) {
+        std::cout << "ConcreteProductA Created!" << std::endl;
+    }
+
+    void show() override {
+        std::cout << "I am ConcreteProductA, using DependencyA -> ";
+        depA.doSomething();
+    }
+};
+
+class ConcreteProductB : public Product {
+    DependencyA& depA;
+    DependencyB& depB;
+public:
+    ConcreteProductB(DependencyA& a, DependencyB& b) : depA(a), depB(b) {
+        std::cout << "ConcreteProductB Created!" << std::endl;
+    }
+
+    void show() override {
+        std::cout << "I am ConcreteProductB, using DependencyA & DependencyB -> ";
+        depA.doSomething();
+        depB.doSomethingElse();
+    }
+};
+
+// === [4] Abstract Factory 및 의존성 주입 처리 ===
+class AbstractFactory {
+public:
+    using CreatorFunc = std::function<std::unique_ptr<Product>()>;
+
+    // === (1) 생성자 등록 ===
+    template <typename T, typename... Args>
+    void registerProduct(const std::string& name) {
+        creators[name] = [this]() {
+            return createFromTuple<T, Args...>(dependencies);
+        };
+    }
+
+    // === (2) 객체 생성 ===
+    std::unique_ptr<Product> create(const std::string& name) {
+        auto it = creators.find(name);
+        if (it != creators.end()) {
+            return it->second();
+        }
+        return nullptr;
+    }
+
+    // === (3) 의존성 등록 ===
+    template <typename T>
+    void addDependency(T& instance) {
+        std::get<T*>(dependencies) = &instance;
+    }
+
+private:
+    std::unordered_map<std::string, CreatorFunc> creators;
+    std::tuple<DependencyA*, DependencyB*> dependencies;  // 의존성 저장
+
+    // === (4) std::tuple을 활용한 의존성 자동 주입 ===
+    template <typename T, typename... Args>
+    static std::unique_ptr<Product> createFromTuple(std::tuple<Args*...>& deps) {
+        return std::apply([](Args*... args) {
+            return std::make_unique<T>(*args...);
+        }, deps);
+    }
+};
+
+// === [5] 실행 예제 ===
+int main() {
+    AbstractFactory factory;
+
+    DependencyA depA;
+    DependencyB depB;
+
+    // 의존성 등록
+    factory.addDependency(depA);
+    factory.addDependency(depB);
+
+    // 제품 등록 (의존성 자동 매핑)
+    factory.registerProduct<ConcreteProductA, DependencyA>("ProductA");
+    factory.registerProduct<ConcreteProductB, DependencyA, DependencyB>("ProductB");
+
+    // 객체 생성 (의존성이 자동으로 주입됨)
+    auto productA = factory.create("ProductA");
+    auto productB = factory.create("ProductB");
+
+    productA->show();
+    productB->show();
+
+    return 0;
+}
+
+
+---
+
+3. 코드 설명
+
+(1) 기본 인터페이스 Product
+
+Product는 추상 클래스이고, show()라는 기본 인터페이스를 제공합니다. ConcreteProductA와 ConcreteProductB는 이를 상속받아 구현합니다.
+
+(2) 의존성 클래스
+
+DependencyA와 DependencyB는 각각 기본 의존성 클래스로, 생성된 제품에서 이를 사용할 수 있도록 합니다.
+
+(3) 제품 클래스
+
+ConcreteProductA는 DependencyA에 의존합니다.
+
+ConcreteProductB는 DependencyA와 DependencyB에 의존합니다.
+
+
+(4) AbstractFactory
+
+AbstractFactory 클래스는 제품의 생성과 의존성 관리, 그리고 등록을 담당합니다.
+
+제품 등록: registerProduct<ConcreteProductA, DependencyA>("ProductA") 형식으로 제품과 의존성을 등록합니다.
+
+의존성 등록: addDependency(depA) 형식으로 의존성을 주입합니다.
+
+객체 생성: create("ProductA")와 같은 방식으로 객체를 생성하며, 의존성도 자동으로 주입됩니다.
+
+
+(5) 객체 생성
+
+factory.create("ProductA") 호출 시, ConcreteProductA(DependencyA&)의 생성자가 자동으로 호출되어 의존성이 주입됩니다.
+
+factory.create("ProductB") 호출 시, ConcreteProductB(DependencyA&, DependencyB&)의 생성자가 자동으로 호출되어 다중 의존성도 주입됩니다.
+
+
+
+---
+
+4. 확장 가능성
+
+의존성 클래스를 추가하거나 변경하면, 등록된 tuple을 통해 객체 생성 시 자동으로 의존성을 주입할 수 있습니다.
+
+제품을 추가하고 싶으면, registerProduct 메서드로 새로운 제품을 등록하면 됩니다.
+
+템플릿 메타프로그래밍을 활용하여 다양한 형식의 객체를 생성할 수 있습니다.
+
+
+
+---
+
+5. 결론
+
+Abstract Factory 패턴을 활용하여 유연한 객체 생성과 의존성 주입을 관리할 수 있습니다. std::tuple과 std::apply를 사용하면 가변 인자와 의존성을 처리하기가 용이해지고, 코드의 확장성과 유지 보수성이 크게 향상됩니다.
+
