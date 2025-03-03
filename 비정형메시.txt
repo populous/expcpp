@@ -1,0 +1,254 @@
+OpenFOAM에서 비정형(언스트럭처드, Unstructured) 메시를 다루는 방법에 대해 설명드리겠습니다.
+
+1. OpenFOAM에서 비정형 메시 지원
+
+OpenFOAM은 기본적으로 구조적(Structured) 및 비정형(Unstructured) 메시 둘 다 지원합니다. OpenFOAM의 메시 형식은 다면체(Polyhedral) 기반이며, 일반적인 사면체(Tetrahedral), 육면체(Hexahedral), 오각면체(Wedge), 피라미드(Pyramid) 등의 다양한 요소를 포함할 수 있습니다.
+
+주요 특징
+
+다면체 기반 (Polyhedral Mesh): OpenFOAM은 다면체 메시를 기본적으로 지원하며, 보다 정확한 계산을 위해 자동 변환 기능(polyDualMesh 등)을 제공
+
+혼합 요소 지원 (Mixed-Element Mesh): 사면체, 육면체, 피라미드 등의 요소를 혼합하여 사용 가능
+
+스냅핑(SnappyHexMesh) 기능 제공: 구조적 육면체 기반의 메시를 복잡한 형상에 맞게 조정 가능
+
+외부 메시 지원: ANSYS Fluent, Gmsh, Salome, Star-CCM+ 등의 메시를 변환하여 사용 가능
+
+
+
+---
+
+2. 비정형 메시 생성 및 사용 방법
+
+비정형 메시를 생성하는 방법은 여러 가지가 있으며, 크게 두 가지로 나눌 수 있습니다.
+
+(1) SnappyHexMesh를 이용한 비정형 메시 생성
+
+SnappyHexMesh는 OpenFOAM에서 복잡한 형상을 자동으로 메시화할 때 사용하는 도구입니다.
+
+주요 과정
+
+1. blockMesh를 사용하여 기본적인 배경 메시(Structured Mesh) 생성
+
+
+2. STL 또는 다른 형상 파일을 불러와 SnappyHexMesh에서 형상을 인식
+
+
+3. 형상에 맞게 메시를 조정하고, 필요하면 표면을 스냅핑(Snapping)
+
+
+4. checkMesh를 이용하여 메시 품질 확인
+
+
+
+실행 방법
+
+blockMesh
+snappyHexMesh -overwrite
+checkMesh
+
+주요 설정 파일 (system/snappyHexMeshDict)
+
+castellatedMesh true;   // 기본 메시 생성
+snap true;              // 표면에 맞게 메시 변형
+addLayers true;         // 경계층 추가
+
+
+---
+
+(2) 외부 메시를 가져와 사용
+
+OpenFOAM은 외부에서 생성된 비정형 메시를 변환하여 사용할 수 있습니다.
+대표적인 외부 메시 형식은 다음과 같습니다.
+
+Fluent 메시(.msh) → fluentMeshToFoam 사용
+
+Gmsh 메시(.msh) → gmshToFoam 사용
+
+STAR-CCM+ 메시 → starToFoam 사용
+
+
+Fluent 메시 변환 예제
+
+fluentMeshToFoam myMesh.msh
+
+변환 후 polyMesh 폴더에 OpenFOAM 형식으로 메시가 저장됩니다.
+
+
+---
+
+3. 비정형 메시 품질 검사 및 수정
+
+비정형 메시를 사용할 때 메시 품질이 해석 결과에 큰 영향을 미칩니다.
+
+(1) 메시 품질 검사 (checkMesh)
+
+checkMesh
+
+출력에서 Max skewness, Non-orthogonality, Aspect ratio 등의 메시 품질을 확인할 수 있습니다.
+
+(2) 메시 수정 방법
+
+polyDualMesh: 다면체 메시 변환
+
+refineMesh: 특정 영역 메시 세분화
+
+surfaceCheck: STL 형상 검토 및 오류 수정
+
+
+예제: 메시 세분화
+
+refineMesh -overwrite
+
+
+---
+
+4. 요약
+
+OpenFOAM은 다면체 기반의 비정형 메시를 지원
+
+snappyHexMesh를 사용하여 비정형 메시 생성 가능
+
+fluentMeshToFoam, gmshToFoam 등을 통해 외부 메시를 가져올 수 있음
+
+checkMesh를 이용하여 메시 품질을 점검하고, 필요하면 refineMesh 등으로 수정
+
+
+비정형 메시를 사용할 때는 품질 검토가 중요하므로, checkMesh를 활용하여 메시 품질을 항상 점검하는 것이 좋습니다.
+
+비정형 메시와 지배방정식의 이산화 및 선형화가 해에 미치는 영향
+
+비정형(Unstructured) 메시를 사용하면 복잡한 형상을 보다 효과적으로 표현할 수 있지만, 유한체적법(Finite Volume Method, FVM) 기반의 OpenFOAM에서 지배방정식을 이산화(Discretization)하고 선형화(Linearization)하는 과정에서 해석 결과에 영향을 미칠 수 있습니다.
+
+
+---
+
+1. 비정형 메시의 특징과 영향
+
+비정형 메시를 사용할 경우, 다음과 같은 특징이 해석 결과에 영향을 미칩니다.
+
+(1) 셀 형상 및 품질의 변화
+
+비정형 메시에서는 사면체(Tetrahedral), 육면체(Hexahedral), 피라미드(Pyramidal), 쐐기(Wedge) 등 다양한 요소가 혼합될 수 있습니다.
+
+비정형 셀은 중심 차분과 보간 과정에서 정확도 저하 가능
+
+Skewness(비틀림), Aspect Ratio(비율 차이) 등 품질이 해에 영향을 줌
+
+Orthogonality(직교성) 저하 → 수렴 속도 감소 및 수치적 불안정성 증가
+
+
+(2) 공간 이산화(Spatial Discretization) 오차 증가
+
+비정형 메시에서는 유한체적법(FVM) 적용 시 보간 및 적분 과정에서 추가적인 오차가 발생할 수 있습니다.
+
+Gradient(구배) 계산이 더 복잡 → 중앙 차분(Central Difference)이 어렵고, Upwind Scheme을 적용해야 하는 경우 증가
+
+면적 벡터(Surface Normal Vector)가 일정하지 않음 → 유체 흐름에 따른 플럭스(Flux) 계산 오차 증가
+
+
+
+---
+
+2. 지배방정식의 이산화에 따른 영향
+
+지배방정식을 이산화할 때, 비정형 메시에서는 비직교 보정(Non-Orthogonal Correction) 및 보간 기법을 신중하게 선택해야 합니다.
+
+(1) 대류항(Convection Term) 이산화
+
+대류항은 보통 다음과 같은 보간(Scheme) 방법을 통해 이산화됩니다.
+
+Upwind Scheme: 수치적 확산 증가, 안정적이지만 정확도 낮음
+
+Linear Upwind: 정확도가 높지만 비정형 메시에서는 추가적인 보간 필요
+
+QUICK: 3차 정확도이지만 복잡한 메시에서는 불안정성 증가 가능
+
+
+비정형 메시에서는 중심 차분법(Central Difference Method)이 적용되기 어려우며, 적절한 Upwind Scheme을 선택해야 합니다.
+
+(2) 확산항(Diffusion Term) 이산화
+
+확산항은 라플라시안(Laplacian) 연산자를 포함하며, 다음과 같은 영향을 받을 수 있습니다.
+
+비정형 메시에서는 Non-Orthogonality 보정이 필수적
+
+보정이 없으면 과도한 수치 확산(Numerical Diffusion) 발생
+
+
+(3) 압력항(Pressure Term)과 속도-압력 연성(Pressure-Velocity Coupling)
+
+비정형 메시에서는 속도와 압력 연성 알고리즘(SIMPLE, PISO 등)의 수렴성이 영향을 받을 수 있습니다.
+
+메시 품질이 낮으면 압력 경계에서 압력 보정 항(Pressure Correction Term) 계산 오차 증가
+
+비직교성이 클 경우 추가적인 Correction Iteration 필요
+
+
+
+---
+
+3. 선형화(Linearization)에 따른 영향
+
+비정형 메시에서 비선형 방정식을 해석할 때 선형화 과정이 영향을 미칠 수 있습니다.
+
+(1) 선형 방정식 계수 행렬(Matrix Coefficients) 생성 문제
+
+비정형 메시에서는 셀 크기가 일정하지 않기 때문에, 유한체적법으로 얻어진 계수 행렬이 대각우세(Diagonal Dominance)를 갖지 않을 가능성 증가
+
+대각우세가 낮아지면 연립 방정식 해법(예: Gauss-Seidel, AMG 등)의 수렴 속도 저하
+
+해가 발산할 위험 증가
+
+
+(2) 선형 솔버의 선택 영향
+
+비정형 메시에서는 압축성이 낮은 경우 PCG(Preconditioned Conjugate Gradient), 높은 경우 **GAMG(Generalized Algebraic Multigrid)**를 사용하는 것이 일반적
+
+하지만 Skewness가 심하면 GAMG 등의 다중격자법(Multigrid)이 효과적으로 작동하지 않을 수 있음
+
+
+
+---
+
+4. 비정형 메시에서 해 정확도를 높이는 방법
+
+비정형 메시를 사용할 때 수치적 오류를 줄이고 해석의 정확도를 높이기 위한 방법은 다음과 같습니다.
+
+(1) 메시 품질 향상
+
+Orthogonality 개선: snappyHexMeshDict에서 nSmoothScale 등을 조정
+
+Aspect Ratio 조절: castellatedMesh 단계에서 적절한 Refinement 설정
+
+
+(2) 보간 기법 및 이산화 방법 최적화
+
+Upwind 사용 시 정확도 저하 방지를 위해 Linear Upwind 또는 TVR(제한된 Total Variation Diminishing) 보간법 사용
+
+Non-Orthogonality 보정 항 추가
+
+
+(3) 선형 해석 방법 개선
+
+비정형 메시의 경우 GAMG 대신 PCG/Diagonal Incomplete Cholesky(PCG+DIC) 솔버 사용
+
+압력-속도 연성 방법을 PISO 대신 SIMPLEC(압력 보정 속도 증가)로 변경
+
+
+
+---
+
+5. 결론
+
+비정형 메시를 사용하면 복잡한 형상을 표현할 수 있지만, 이산화 및 선형화 과정에서 수치적 오차와 수렴성 문제가 발생할 수 있습니다.
+
+비정형 메시 품질(Skewness, Orthogonality, Aspect Ratio 등)이 해에 직접적인 영향을 미침
+
+대류항과 확산항의 이산화 방법을 신중하게 선택해야 함
+
+비직교 보정(Non-Orthogonal Correction)과 적절한 선형 솔버 선택이 필수적
+
+
+비정형 메시의 수치적 오류를 최소화하려면 고품질 메시 생성, 적절한 보간 기법 선택, 최적의 선형 솔버 적용이 중요합니다.
+
