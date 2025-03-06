@@ -14,5 +14,3 @@ C++ 2nd Text // 11st HOME version  25.02.27 ls
 C++ 2nd Text // 11st GitHub 변경 version  25.02.27 ls 
 C++ 2nd Text // admin write and git version  25.02.27 ls 
 C++ 2nd Text // 12st admin write and git version  25.02.28  
-C++ 2nd Text // 13st admin write and git version  25.02.28 
-C++ 2nd Text // 14st Home Version 
