@@ -1,0 +1,195 @@
+OpenFOAM의 Laplace matrix를 Graph로 변환후 PINN과 연결하는 방법
+
+OpenFOAM의 Laplace 행렬을 그래프로 변환한 후, 이를 Graph Neural Networks(GNN)와 Physics-Informed Neural Networks(PINN)으로 연결하는 방법은 다음과 같은 단계로 구성됩니다. 이 과정은 OpenFOAM의 수치 해석 기반 데이터를 딥러닝 프레임워크로 통합하여 물리적 제약을 학습하는 데 중점을 둡니다.
+
+1. OpenFOAM의 Laplace 행렬 이해
+OpenFOAM은 유한체적법(Finite Volume Method, FVM)을 사용하여 PDE를 이산화하며, Laplace 행렬은 주로 다음과 같은 PDE의 이산화 결과로 나타납니다:
+
+∇
+⋅
+(
+Γ
+∇
+ϕ
+)
+=
+S
+∇⋅(Γ∇ϕ)=S
+
+ϕ
+ϕ: 스칼라 필드(예: 온도, 압력 등).
+Γ
+Γ: 확산 계수(예: 열전도율 등).
+S
+S: 소스 항.
+이 식을 유한체적법으로 이산화하면 다음과 같은 선형 시스템으로 표현됩니다:
+
+A
+ϕ
+=
+b
+Aϕ=b
+
+여기서:
+
+A
+A: Laplace 행렬 (희소 행렬, 셀 간의 상호작용을 나타냄).
+ϕ
+ϕ: 해 벡터.
+b
+b: 소스 항 벡터.
+2. Laplace 행렬을 그래프로 변환
+OpenFOAM의 Laplace 행렬 
+A
+A는 메쉬의 셀 간 상호작용을 나타내므로, 이를 그래프 데이터로 변환할 수 있습니다.
+
+2.1. 그래프 정의
+노드(Node): OpenFOAM 메쉬의 각 셀.
+엣지(Edge): 인접한 셀 간의 연결.
+노드 특성(Node Features):
+각 셀의 물리적 값(예: 온도, 압력 등).
+엣지 특성(Edge Features):
+Laplace 행렬의 비대각 성분(셀 간 상호작용 계수).
+페이스 면적, 거리, 확산 계수 등 추가 정보.
+2.2. 그래프 생성
+OpenFOAM의 Laplace 행렬 데이터를 읽어와 그래프를 생성합니다. Python에서 PyTorch Geometric 또는 DGL을 사용하여 그래프를 표현할 수 있습니다.
+
+복사
+import torch
+from torch_geometric.data import Data
+
+def laplace_to_graph(laplace_matrix, source_term, cell_features):
+    """
+    Laplace 행렬과 소스 항, 셀 특성을 기반으로 그래프 생성
+    """
+    # 노드 수
+    num_nodes = laplace_matrix.shape[0]
+    
+    # 엣지 인덱스 (비대각 성분이 있는 위치를 엣지로 정의)
+    edge_index = torch.nonzero(laplace_matrix, as_tuple=False).t().contiguous()
+    
+    # 엣지 특성 (Laplace 행렬의 비대각 성분 값)
+    edge_attr = laplace_matrix[edge_index[0], edge_index[1]]
+    
+    # 노드 특성 (초기 물리적 값 또는 셀 특성)
+    node_features = torch.tensor(cell_features, dtype=torch.float)
+    
+    # 그래프 데이터 생성
+    graph = Data(x=node_features, edge_index=edge_index, edge_attr=edge_attr, y=torch.tensor(source_term, dtype=torch.float))
+    
+    return graph
+입력 데이터:
+
+laplace_matrix: OpenFOAM에서 추출한 Laplace 행렬.
+source_term: PDE의 소스 항 벡터.
+cell_features: 각 셀의 초기값(예: 초기 온도 분포).
+출력:
+
+graph: PyTorch Geometric 형식의 그래프 데이터.
+3. GNN을 활용한 Laplace 행렬 학습
+Laplace 행렬로 변환한 그래프 데이터를 GNN으로 학습합니다. GNN은 그래프 상에서의 노드 간 상호작용을 학습하는 데 적합하며, 이를 통해 PDE의 해를 근사할 수 있습니다.
+
+3.1. GNN 모델 정의
+GNN 모델은 노드 특성과 엣지 특성을 입력으로 받아, PDE의 해를 예측합니다.
+
+복사
+import torch.nn as nn
+from torch_geometric.nn import GCNConv
+
+class LaplaceGNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(LaplaceGNN, self).__init__()
+        self.conv1 = GCNConv(input_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, output_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, data):
+        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+        x = self.relu(self.conv1(x, edge_index, edge_weight=edge_attr))
+        x = self.conv2(x, edge_index, edge_weight=edge_attr)
+        return x
+입력:
+data.x: 노드 특성(초기값).
+data.edge_index: 그래프의 엣지 연결 정보.
+data.edge_attr: 엣지 특성(Laplace 행렬의 비대각 성분).
+출력:
+PDE의 해(예: 온도, 압력 등).
+4. PINN을 활용한 물리적 제약 통합
+GNN으로 학습한 그래프 데이터에 PINN의 물리적 제약을 추가하여, PDE의 해가 물리 법칙을 만족하도록 보장합니다.
+
+4.1. 물리 손실 함수 정의
+PDE의 잔차를 계산하여 물리 손실을 정의합니다. 예를 들어, Laplace 방정식:
+
+∇
+2
+ϕ
+−
+S
+=
+0
+∇ 
+2
+ ϕ−S=0
+
+GNN 출력 
+ϕ
+ϕ에 대해 PDE 잔차를 계산합니다.
+
+복사
+def physics_loss(data, model_output):
+    """
+    Laplace 방정식의 물리 손실 계산
+    """
+    # PDE 잔차: Laplace 행렬 * 예측 값 - 소스 항
+    laplace_term = torch.matmul(data.laplace_matrix, model_output)
+    residual = laplace_term - data.y  # y는 소스 항
+    
+    # 잔차 손실
+    return torch.mean(residual**2)
+4.2. PINN과 GNN 손실 결합
+데이터 손실과 물리 손실을 결합하여 최종 손실 함수를 정의합니다.
+
+복사
+def total_loss(data, model, laplace_matrix):
+    # GNN 예측
+    output = model(data)
+    
+    # 데이터 손실 (예: 관측 값과의 차이)
+    data_loss = torch.nn.functional.mse_loss(output, data.y)
+    
+    # 물리 손실 (PDE 잔차)
+    p_loss = physics_loss(data, output)
+    
+    return data_loss + p_loss
+5. PINN-GNN 학습 프로세스
+OpenFOAM 데이터 처리:
+
+Laplace 행렬과 소스 항, 초기값을 추출.
+이를 그래프 데이터로 변환.
+GNN 학습:
+
+GNN을 사용하여 Laplace 행렬 기반 그래프에서 PDE의 해를 예측.
+PINN 손실 추가:
+
+PDE 잔차를 계산하여 물리적 제약을 학습 과정에 추가.
+최적화:
+
+데이터 손실과 물리 손실을 결합한 총 손실 함수를 최소화.
+6. 응용 방안
+OpenFOAM 시뮬레이션 보완:
+
+OpenFOAM의 계산 결과를 학습 데이터로 사용하여 GNN-PINN 모델을 학습.
+물리적 제약을 추가하여 계산 정확도를 개선.
+고차원 문제 해결:
+
+OpenFOAM의 계산 비용이 높은 고차원 문제를 GNN-PINN으로 근사.
+역문제 해결:
+
+Laplace 행렬을 기반으로 물리적 매개변수(예: 확산 계수)를 추정.
+실시간 예측:
+
+학습된 GNN-PINN 모델을 사용하여 실시간으로 PDE의 해를 예측.
+7. 결론
+OpenFOAM의 Laplace 행렬을 그래프로 변환하여 GNN으로 학습할 수 있습니다.
+PINN을 활용하여 PDE 기반 물리적 제약을 추가하면, 데이터가 부족하거나 계산 비용이 높은 문제에서도 정확한 해를 얻을 수 있습니다.
+이 접근 방식은 OpenFOAM의 수치 해석과 딥러닝의 일반화 능력을 결합하여 더욱 효율적이고 물리적으로 일관된 시뮬레이션을 가능하게 합니다.
